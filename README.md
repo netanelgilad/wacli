@@ -56,6 +56,8 @@ wacli download ABC123DEF -o ./downloads/     # Download specific media
 wacli search "meeting" --since 7d
 ```
 
+Individual chats with cached messages are included in the chat registry even when no history chat entry was received. Older caches recover missing entries in memory when loaded; normal store saves persist them. Existing chat names are preserved, with a cached contact name or chat ID used only for missing entries. This does not fetch additional history or resolve phone/LID aliases.
+
 ## Storage
 
 - Auth: `~/.config/wacli/auth/`

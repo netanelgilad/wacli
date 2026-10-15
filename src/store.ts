@@ -46,11 +46,16 @@ export function loadStore(): MessageStore {
   if (fs.existsSync(storePath)) {
     try {
       const data = JSON.parse(fs.readFileSync(storePath, "utf-8"));
-      return {
+      const store: MessageStore = {
         messages: new Map(Object.entries(data.messages || {}).map(([k, v]) => [k, v as StoredMessage[]])),
         chats: new Map(Object.entries(data.chats || {})),
         contacts: new Map(Object.entries(data.contacts || {})),
       };
+      // Older caches may contain DM messages without a history chat entry.
+      for (const [chatId, messages] of store.messages) {
+        registerCachedDm(store, chatId, messages);
+      }
+      return store;
     } catch {
       // Corrupted store, start fresh
     }
@@ -169,9 +174,21 @@ export function processMessage(
   return stored;
 }
 
+function registerCachedDm(store: MessageStore, chatId: string, messages: StoredMessage[]): void {
+  if (store.chats.has(chatId) || messages.length === 0 ||
+      (!chatId.endsWith("@s.whatsapp.net") && !chatId.endsWith("@lid"))) return;
+  store.chats.set(chatId, {
+    name: store.contacts.get(chatId.split("@")[0]) || chatId,
+    isGroup: false,
+    lastMessageTime: messages.reduce((latest, msg) => Math.max(latest, msg.timestamp), 0),
+  });
+}
+
 export function addMessage(store: MessageStore, msg: StoredMessage): void {
   const existing = store.messages.get(msg.chatId) || [];
   
+  registerCachedDm(store, msg.chatId, existing.length ? existing : [msg]);
+
   // Avoid duplicates
   if (existing.some(m => m.id === msg.id)) return;
   
