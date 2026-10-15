@@ -212,6 +212,7 @@ export function addMessage(store: MessageStore, msg: StoredMessage): void {
 }
 
 export interface MessageFilter {
+  chat?: string; // CLI ID-or-name selector; exact IDs take precedence
   chatId?: string;
   chatName?: string;
   isGroup?: boolean;
@@ -227,6 +228,10 @@ export function filterMessages(
   filter: MessageFilter
 ): StoredMessage[] {
   let results: StoredMessage[] = [];
+  const selector = filter.chat;
+  const hasChat = (id: string) => store.messages.has(id) || store.chats.has(id);
+  const exactId = selector && (hasChat(selector) ? selector :
+    !selector.includes("@") && hasChat(`${selector}@g.us`) ? `${selector}@g.us` : undefined);
   
   for (const [chatId, messages] of store.messages) {
     const chat = store.chats.get(chatId);
@@ -237,6 +242,11 @@ export function filterMessages(
       if (filter.isGroup !== isGroup) continue;
     }
     
+    if (selector) {
+      if (exactId ? chatId !== exactId :
+          !chatId.includes(selector) && !chat?.name.toLowerCase().includes(selector.toLowerCase())) continue;
+    }
+
     // Filter by chat ID
     if (filter.chatId && !chatId.includes(filter.chatId)) continue;
     

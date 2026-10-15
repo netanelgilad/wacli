@@ -45,6 +45,8 @@ wacli unlink                          # Remove link
 --json            # JSON output
 ```
 
+`--chat` accepts a full stored chat ID, a bare group ID (the portion before `@g.us`), or a name. Exact IDs take precedence; otherwise ID substrings and case-insensitive name substrings match. Other filters and limits still apply. This does not resolve phone/LID aliases.
+
 ## Examples
 
 ```bash

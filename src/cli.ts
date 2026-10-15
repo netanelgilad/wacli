@@ -336,8 +336,7 @@ program
       const until = options.until ? parseTimeArg(options.until) : undefined;
 
       const messages = client.getMessages({
-        chatId: options.chat,
-        chatName: options.chat,
+        chat: options.chat,
         isGroup: options.groups ? true : options.dms ? false : undefined,
         since,
         until,

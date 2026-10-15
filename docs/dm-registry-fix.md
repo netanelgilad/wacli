@@ -1,4 +1,4 @@
-# DM registry omission
+# DM registry and chat selector fixes
 
 Cached individual-message buckets could lack a chat registry entry. `getChats()` enumerates that registry (plus freshly fetched groups), so such DMs were omitted from `chats --dms` even though their messages existed.
 
@@ -8,7 +8,11 @@ Synthetic regressions exercise incoming and duplicate messages, older/newer time
 
 Run `npm test`, `npm run build`, and `npx tsc --noEmit` after installing repository dependencies. Existing installed dependencies were reused locally without changing the global installation. Before the fix, incoming and legacy registry assertions failed with `undefined` instead of `false`.
 
-`messages --chat` filtering is deliberately unchanged: the owner-required actual-cache gate did not reproduce an exclusion for registered individual chats. No private fixtures or cache measurements are committed here.
+The initial actual-cache check of registered individual chats did not reproduce an ID/name exclusion. A separately approved group check subsequently reproduced it: the CLI populated both `chatId` and `chatName`, so an ID match was rejected by an unrelated display name. The missing group suffix was not the rejection cause, because ID substring matching already accepted bare IDs.
+
+The CLI now uses one `chat` selector. Exact cached IDs take precedence, then an exact bare group ID resolves to its stored `@g.us` ID. Otherwise the selector matches an ID substring or case-insensitive name substring. Explicit programmatic `chatId` and `chatName` filters retain their existing independent AND semantics. This does not reconcile phone/LID identities.
+
+Four additional synthetic tests cover full/bare group IDs, names, nonmatches, exact-ID priority over overlapping IDs/names, time/type/limit filters, and individual IDs. The old CLI-equivalent synthetic group filter returned no result before this fix. No private identifiers, fixtures or cache measurements are committed here.
 
 ## Separate follow-up work (recorded, not implemented)
 
