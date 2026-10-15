@@ -223,15 +223,46 @@ export interface MessageFilter {
   limit?: number;
 }
 
+export interface ChatChoice { id: string; name: string }
+
+export class AmbiguousChatError extends Error {
+  readonly code = "ambiguous_chat";
+  constructor(readonly candidates: ChatChoice[]) {
+    super("Multiple chats match. Use a more specific selector or a full chat ID.");
+  }
+}
+
+const normalizeName = (value: string) => value.normalize("NFC").toLowerCase().normalize("NFC").trim();
+
+export function resolveChatSelector(store: MessageStore, selector: string, isGroup?: boolean): string | undefined {
+  if (!normalizeName(selector)) return undefined;
+  const ids = [...new Set([...store.chats.keys(), ...store.messages.keys()])];
+  const hasChat = (id: string) => ids.includes(id);
+  // An explicit ID selects only that identity, even when names overlap.
+  const exactId = hasChat(selector) ? selector :
+    !selector.includes("@") && hasChat(`${selector}@g.us`) ? `${selector}@g.us` : undefined;
+  if (exactId) return exactId;
+  const query = normalizeName(selector);
+  const candidates = ids.filter(id => {
+    if (isGroup !== undefined && id.endsWith("@g.us") !== isGroup) return false;
+    const name = store.chats.get(id)?.name;
+    const contact = id.endsWith("@g.us") ? undefined : store.contacts.get(id.split("@")[0]);
+    return id.includes(selector) || (name !== undefined && normalizeName(name).includes(query)) ||
+      (contact !== undefined && normalizeName(contact).includes(query));
+  }).sort().map(id => ({id, name: store.chats.get(id)?.name ||
+    (!id.endsWith("@g.us") && store.contacts.get(id.split("@")[0])) || id}));
+  if (candidates.length > 1) throw new AmbiguousChatError(candidates);
+  return candidates[0]?.id;
+}
+
 export function filterMessages(
   store: MessageStore,
   filter: MessageFilter
 ): StoredMessage[] {
   let results: StoredMessage[] = [];
   const selector = filter.chat;
-  const hasChat = (id: string) => store.messages.has(id) || store.chats.has(id);
-  const exactId = selector && (hasChat(selector) ? selector :
-    !selector.includes("@") && hasChat(`${selector}@g.us`) ? `${selector}@g.us` : undefined);
+  const selectedId = selector !== undefined ? resolveChatSelector(store, selector, filter.isGroup) : undefined;
+  if (selector !== undefined && selectedId === undefined) return [];
   
   for (const [chatId, messages] of store.messages) {
     const chat = store.chats.get(chatId);
@@ -242,10 +273,7 @@ export function filterMessages(
       if (filter.isGroup !== isGroup) continue;
     }
     
-    if (selector) {
-      if (exactId ? chatId !== exactId :
-          !chatId.includes(selector) && !chat?.name.toLowerCase().includes(selector.toLowerCase())) continue;
-    }
+    if (selector !== undefined && chatId !== selectedId) continue;
 
     // Filter by chat ID
     if (filter.chatId && !chatId.includes(filter.chatId)) continue;

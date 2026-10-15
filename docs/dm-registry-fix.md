@@ -25,3 +25,9 @@ Sickrat provides a concrete comparison: its CI checks TypeScript/tests/builds; i
 Tracking remains the existing owner task: https://app.notion.com/p/3facc1568189816fa964f73f485cbb87 . No duplicate task was created and no Notion edits were attempted during parent reconciliation. Parent should record these follow-ups there.
 
 Publication is a draft PR only. No merge, release, cache write, installed executable patch or bridge restart is part of this change. Independent review is deferred under the owner's sole-worker instruction; checks here are self-checks.
+
+## Name lookup and ambiguity follow-up
+
+Name selectors match Unicode-normalized partial registry/contact names. More than one distinct matching chat raises `AmbiguousChatError` before message filtering, even if time/search/limit would leave messages from only one chat. No aliases are merged. Exact full/bare group IDs still select one identity. The CLI prints safely quoted names/IDs and a narrowing instruction on stderr (or a standard `--json` error object on stdout), then exits 1 without message output. Control characters in choices are escaped. Ordinary message rendering and the existing raw RPC transport are unchanged.
+
+Synthetic regressions cover unique contact/group names, Hebrew, composed/decomposed Unicode, case, empty/no matches, duplicate names across phone/LID identities, escaped choices without message bodies, type narrowing, and failure before time/limit filtering. Read-only real-cache verification used only in-memory name queries and emitted aggregate counts, never labels or messages; no private values are stored in this note. Notion remains untouched.

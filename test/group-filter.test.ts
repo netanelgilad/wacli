@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterMessages, type MessageStore, type StoredMessage } from '../src/store.js';
+import { filterMessages, AmbiguousChatError, type MessageStore, type StoredMessage } from '../src/store.js';
 const group = 'synthetic-group@g.us';
 const other = 'synthetic-other@g.us';
 const row = (chatId: string, timestamp = 1000): StoredMessage => ({id:`fixture-${chatId}-${timestamp}`,chatId,sender:'synthetic',timestamp,body:'synthetic fixture',isFromMe:false,hasMedia:false});
@@ -16,7 +16,7 @@ test('CLI-equivalent full and bare group ID accept a display name unrelated to I
 
 test('name matching is case-insensitive; missing selectors do not widen results',()=>{
   const store=fixture();
-  assert.equal(filterMessages(store,{chat:'GARDEN'}).length,2);
+  assert.throws(()=>filterMessages(store,{chat:'GARDEN'}),AmbiguousChatError);
   assert.equal(filterMessages(store,{chat:'garden club'}).length,1);
   assert.equal(filterMessages(store,{chat:'no-match'}).length,0);
   assert.equal(filterMessages(store,{chat:'synthetic-group@wrong'}).length,0);

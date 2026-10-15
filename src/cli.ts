@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { AmbiguousChatError } from "./store.js";
+import { ambiguousChatOutput } from "./chat-output.js";
 import { client } from "./client.js";
 import { formatDistanceToNow, subHours, subDays, subWeeks, subMonths, parseISO, format } from "date-fns";
 import { createServer } from "http";
@@ -412,6 +414,11 @@ program
 
       process.exit(0);
     } catch (err) {
+      if (err instanceof AmbiguousChatError) {
+        if (options.json) console.log(ambiguousChatOutput(err, true));
+        else console.error(ambiguousChatOutput(err, false));
+        process.exit(1);
+      }
       console.error("❌ Error:", (err as Error).message);
       process.exit(1);
     }
