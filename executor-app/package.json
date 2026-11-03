@@ -1,0 +1,1 @@
+{"name":"whatsapp-executor-app","private":true,"type":"module","scripts":{"test":"node --test test/*.test.mjs","start":"node companion/server.mjs"}}

@@ -1,0 +1,56 @@
+{
+  "name": "wacli",
+  "version": "0.1.0",
+  "description": "WhatsApp CLI for reading messages from groups and DMs",
+  "type": "module",
+  "bin": {
+    "wacli": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "build": "tsup src/cli.ts src/client.ts src/store.ts --format esm --dts --clean",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "whatsapp",
+    "cli",
+    "messaging",
+    "baileys",
+    "chat",
+    "messages"
+  ],
+  "author": "Offload <nev@offloadmy.work>",
+  "license": "MIT",
+  "homepage": "https://github.com/offloadmywork/wacli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/offloadmywork/wacli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/offloadmywork/wacli/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "commander": "^13.0.0",
+    "date-fns": "^4.1.0",
+    "pino": "^9.0.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.5",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0"
+  }
+}
