@@ -1,48 +1,46 @@
 # WhatsApp for Executor
 
-Tool-only Executor app plus a Mac companion wrapping an app-scoped wacli build.
-Customer: Instinct. No sends, pairing or unlinking were executed. A live round-1 sync probe timed out; borrowed-session monitoring now uses read-only source snapshots.
+Tool-only Executor app plus a Mac companion wrapping an app-scoped wacli build. This branch is a draft, not a deployment. Existing service, account state, Executor connections and schedules are untouched.
 
-## Deployment
+## Connection model
 
-- App: WhatsApp (`whatsapp`)
-- ID: `app_cfa39380-6372-4902-8cbf-b97a085363da`
-- Dashboard: https://executor.netanelgilad.com/org/executor/apps/app_cfa39380-6372-4902-8cbf-b97a085363da
-- Deployed version: `dpl_abad4cc2-eec5-4f01-a1f9-bfedab837a8a`
-- Runtime: `com.netanelgilad.whatsapp-executor` LaunchAgent; authenticated companion on port 18871, reachable from Executor's container through `host.lima.internal`.
-- App source: `app/`; only that directory is deployed to Executor. The companion, private data and executable stay on the Mac.
-- Private state: `.private/`, excluded from Git. Two independent HOME directories, media directories and per-account bearer tokens. The companion credential binds each request to exactly one account.
+The app declares a single app-scoped `whatsapp` requirement. Executor supplies it as `ctx.app.accounts.whatsapp` to every handler. The requirement uses the connection linked for the app by its manager; callers do not supply account selectors. Tools take only their operation arguments. The provider's sole credential field is `token`; a human-readable connection label is Executor account metadata, not a credential or routing field.
 
-## Account setup — human gate
+The selected connection's token is sent to the companion. The companion selects its isolated local HOME from the authenticated bearer, never a caller's account argument. Existing clients may still send a legacy body account, but it must match the bearer-selected account or the request is refused. Tokens cannot access another account's HOME, jobs or media paths. The change does not establish independently verifiable Executor-native app/approval authentication; existing bridge approval assertions remain the transition protocol.
 
-Connect two **Local companion account** credentials to the app's `whatsapp` collection using Executor's secure connection form. Use `account-1` / `account-2` as the account field and each corresponding locally generated token. Never paste tokens into chat. Run `node companion/copy-token.mjs account-1` to copy only that token to the Mac clipboard, then paste it into the secure form.
+The published SDK `apps@0.0.1-beta.116` supports this token-only schema. Changing the previous credential schema creates a new provider identity; changing `.many()` to a plain requirement changes cardinality, not provider identity. One app instance now uses one platform-bound connection. Using separate connections side by side requires separately linked app copies or an explicitly designed collection workflow, not invented local selectors in tools.
 
-Account 1 is a snapshot of the existing session/cache. Its identity comes from `creds.me.id`, reported privately to the owner; this is local identity evidence, not a network identity check. No assumption is made about personal/work labels. Account 2 is empty and its identity is unresolved. After connecting its companion credential, the human may explicitly authorize `link({account:'account-2',args:[]})`, poll `jobStatus` for its private QR, scan on the second phone and then inspect `account`. Pairing remains a separate human action; never pair for acceptance testing.
+## Deployment and setup boundary
 
-The source session and store are never used as a working directory. Initialization snapshots them and verifies source hash/size/mtime before and after. All subsequent operations target the copies. No global wacli install, migration or configuration change is required. A copied linked-device identity must not open a concurrent connection. Account 1 uses a read-only source-cache snapshot for unattended monitoring; independent upstream sync requires a separately paired app-owned session.
+The existing deployed app is WhatsApp (`whatsapp`), `app_cfa39380-6372-4902-8cbf-b97a085363da`, at https://executor.netanelgilad.com/org/executor/apps/app_cfa39380-6372-4902-8cbf-b97a085363da. Its previously observed deployment is `dpl_abad4cc2-eec5-4f01-a1f9-bfedab837a8a`. This branch does not update it.
 
-## Tools and approvals
+The production companion currently listens on 18871 through `com.netanelgilad.whatsapp-executor`. The app source still targets that endpoint; the shared-service URL change is a separate reviewed cutover described in [the SDK/cutover findings](docs/sdk-account-model.md). Both companion implementations must accept accountless requests before the corrected app can be activated. The running old companion currently requires the legacy account field, so deploying only this app source would fail. Do not activate this draft or restart a service to work around that boundary.
 
-Every tool has an explicit `account` selector. CLI tools take `args` as a string array, preserving supported flags and `--key=value` forms. Unknown commands/options, duplicate flags, invalid bounds and cross-account paths fail closed. No shell interpolation occurs.
+Only `app/` is deployed to Executor; exclude its `node_modules/` and fixture `test/` source from upload. `app/skills/whatsapp/SKILL.md` and router instructions describe capabilities and approval requirements without local account choices. `companion/` remains on the Mac, with config and private account HOME directories in place.
 
-See [acceptance round 1](docs/acceptance-round-1.md) for the authoritative per-tool effect/gating table and evidence. Routine monitoring reads and sync run unattended. Media writes, pairing/removal and pairing-output disclosure remain gated. All paths are confined per account; unsupported commands fail closed.
+A read-only deployed `appAccounts.appGet` returned no linked or compatible saved WhatsApp accounts for the current provider. A new connection form/API completion is required, and the submitted `fields` must contain the token. There is no demonstrated built-in local CLI/API path that registers the existing local credential without reading/transferring its value. Do not run the historical clipboard helper, inspect private token files, submit secret-bearing tool arguments, create connection requests, or pair a device as part of this draft. No-paste registration remains blocked; see the exact gap in the findings.
 
-## Sync
+## Tools, monitoring and approval
 
-Independent app-owned sessions report completed only after persisted final-history evidence. Borrowed account 1 refreshes its cache from the original store without opening a second WhatsApp connection and always reports cached-only, source timestamp and observation timestamp. Neither cached reads nor snapshot refresh prove complete upstream history.
+`account` inspects identity and cache freshness. `messagesCached` and `search` read cache. `status`, `sync`, `chats`, `groups`, `messages` and `listen` perform bounded monitoring. `jobStatus` reads bounded background progress. CLI operations retain `args: string[]` and supported flags; no shell interpolation occurs.
 
-Account 1's 15-minute user schedule is enabled in automatic mode with an approval-free scoped sync operation. Account 2's schedule remains disabled until setup. Credential connection is still required before the scheduler can reach the companion.
+Media writes, pairing/removal, public QR serving and pairing-output disclosure require explicit approval. Unknown commands/options, duplicate flags, invalid bounds and paths outside the authenticated account fail closed. No send command exists. Pairing/removal must never be used as acceptance tests.
 
-## Source provenance
+Borrowed-session monitoring refreshes its read-only source cache and reports cached-only, with timestamps and unverified coverage. It does not open another upstream socket. Independently paired identities can sync upstream; completion requires a persisted final-history event. Neither a connection nor a cache timestamp proves complete history.
 
-PR https://github.com/netanelgilad/wacli/pull/1 was verified at `18eba53d76422072aece02b2e0ed117f0046d7f7`. Its source supplies DM registry recovery and NFC/case-insensitive, ambiguity-safe name lookup. `vendor/wacli` is pinned to that commit with the separately source-tested history-sync changes copied from `wacli-install-18eba53`, plus account media containment. No existing checkout was changed.
+The new source declares one `monitoringSync` schedule without account inputs. The previous source's two slot-specific schedules are not changed in the live deployment. An eventual supervised deployment must review those saved schedules and replace/retire them through supported operations, without replaying uncertain work.
 
-The reference https://app.notion.com/p/3f4cc156818981fcaaebdb62e75df7fd explicitly distinguishes October 25 source-tested sync fixes from deployment. We verified the edited files and six sync tests locally; historical deployment/acceptance is not assumed.
+## Offline verification
 
-## Verification
+```sh
+npm test
+npm ci --ignore-scripts --prefix app
+npm run typecheck --prefix app
+npm run test:fixture --prefix app
+```
 
-Run `npm test`, `npm test --prefix vendor/wacli`, and TypeScript checks in `app` and `vendor/wacli`. `test/real-read.mjs` reads one actual cached record but prints aggregates only and rechecks original files. `test/bridge-read.mjs` verifies HTTP authentication, both directions of account-token isolation, blocked unapproved media writes, and an actual cached read. These scripts require local initialized private state; no test sends or pairs.
+The SDK fixture drives the actual pinned host handler into a disposable local HTTP companion. Synthetic bound connections route to different local HOME directories without any account input. It verifies every advertised tool schema, schedule input, approval rejection before outbound work, invalid bearers and both directions of legacy account mismatch. Process execution is stubbed; no real configs, sessions, databases, WhatsApp connections or provider operations are used.
 
-Acceptance remains pending for Instinct, secure Executor account connection, deployed end-to-end reads and scheduled delivery. The app has no custom UI. Never treat successful deployment or tool discovery as customer acceptance.
+The older `test/real-read.mjs`, `test/bridge-read.mjs` and `test/unattended-sync.mjs` depend on live initialized state; do not run them for this change. [Round-one acceptance](docs/acceptance-round-1.md) is historical evidence and its slot/clipboard instructions are superseded.
 
-Preservation evidence: initialization and the first real-read check verified all original files unchanged. A later long-interval check detected three changed original files while the pre-existing global `wacli listen` process was active. That listener was left untouched; the per-invocation test now snapshots immediately before the read. No claim is made that the original store remains frozen while its own listener runs.
+Vendor source provenance and retained isolation rules are unchanged. No customer acceptance, successful new connection, deployment or no-paste migration is claimed.

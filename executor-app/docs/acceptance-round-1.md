@@ -1,3 +1,5 @@
+> Historical evidence only. Account-selector, two-slot schedule and clipboard setup instructions below are superseded by [the corrected SDK account model](sdk-account-model.md). They are not a current setup procedure. No new deployment or connection is claimed.
+
 # Acceptance round 1
 
 Deployed version: `dpl_abad4cc2-eec5-4f01-a1f9-bfedab837a8a`.

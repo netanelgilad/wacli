@@ -4,16 +4,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {validate,needsApproval,syncSignal,runProcess,publicOutput,commands} from './core.mjs';
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+import {validate,needsApproval,syncSignal,runProcess as defaultRunProcess,publicOutput,commands} from './core.mjs';
+function identity(home){try{const me=JSON.parse(fs.readFileSync(path.join(home,'.config/wacli/auth/creds.json'),'utf8')).me;return me?.id?{jid:me.id,verifiedFrom:'local-session-creds.me.id',networkVerified:false}:null;}catch{return null;}}
+export function createWhatsAppServer({config,root,runProcess=defaultRunProcess,readIdentity=identity}) {
 const state=path.join(root,'.private');
-const config=JSON.parse(fs.readFileSync(path.join(state,'accounts.json'),'utf8'));
 const binary=path.join(root,'vendor/wacli/dist/cli.js');
 const busy=new Set();
 const jobs=new Map();
 function equal(a,b){const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&crypto.timingSafeEqual(aa,bb);}
 function cacheTime(home){try{return fs.statSync(path.join(home,'.config/wacli/data/messages.json')).mtime.toISOString();}catch{return null;}}
-function identity(home){try{const me=JSON.parse(fs.readFileSync(path.join(home,'.config/wacli/auth/creds.json'),'utf8')).me;return me?.id?{jid:me.id,verifiedFrom:'local-session-creds.me.id',networkVerified:false}:null;}catch{return null;}}
+
 const server=http.createServer(async(req,res)=>{
  const reply=(code,body)=>{res.writeHead(code,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(body));};
  const token=(req.headers.authorization||'').replace(/^Bearer /,'');
@@ -21,10 +21,11 @@ const server=http.createServer(async(req,res)=>{
  if(!account)return reply(401,{error:'unauthorized'});
  if(req.method!=='POST'||req.url!=='/v1/call')return reply(404,{error:'not_found'});
  let raw='';try{for await(const chunk of req){raw+=chunk;if(raw.length>24000)return reply(413,{error:'request_limit'});}
- const input=JSON.parse(raw);if(input.account!==account.id)return reply(403,{error:'account_mismatch'});
+ // The bearer alone selects the local HOME; legacy account input may only confirm it.
+ const input=JSON.parse(raw);if(Object.hasOwn(input,'account')&&input.account!==account.id)return reply(403,{error:'account_mismatch'});
  const home=path.join(state,'accounts',account.id);const asOf=cacheTime(home);
  const statusPath=path.join(home,'sync-status.json');let prior=null;try{prior=JSON.parse(fs.readFileSync(statusPath,'utf8'));}catch{}
- if(input.command==='account')return reply(200,{account:account.id,identity:identity(home),linked:!!identity(home),sync:syncSignal('account',{},asOf,prior),commands:Object.keys(commands)});
+ if(input.command==='account')return reply(200,{account:account.id,identity:readIdentity(home),linked:!!readIdentity(home),sync:syncSignal('account',{},asOf,prior),commands:Object.keys(commands)});
  if(input.command==='jobStatus'){
   const job=jobs.get(input.args?.[0]);
   if(!job||job.account!==account.id)return reply(404,{error:'job_not_found'});
@@ -34,9 +35,9 @@ const server=http.createServer(async(req,res)=>{
  }
  let args=validate(input.command,input.args??[],home);
  // Monitoring never initializes a new WhatsApp identity or requests pairing.
- if(!['link','unlink','search'].includes(input.command)&&!identity(home))return reply(409,{error:'account_not_linked'});
- // This header is issued only by the Executor mutation after its approval policy.
- // It is not exposed as a tool input; the bearer credential is held by Executor.
+ if(!['link','unlink','search'].includes(input.command)&&!readIdentity(home))return reply(409,{error:'account_not_linked'});
+ // Legacy bridge approval assertion; the per-account bearer remains mandatory.
+ // This is not an independently verifiable native Executor approval proof.
  if(needsApproval(input.command,args)&&req.headers['x-executor-approved']!=='true')return reply(403,{error:'approval_required'});
  if(busy.has(account.id))return reply(409,{error:'account_busy'});
  busy.add(account.id);
@@ -80,4 +81,10 @@ const server=http.createServer(async(req,res)=>{
  }finally{busy.delete(account.id);}
  }catch{reply(400,{error:'invalid_request'});}
 });
-server.listen(config.port,config.bind,()=>console.log('WhatsApp companion ready'));
+return server;
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+ const config=JSON.parse(fs.readFileSync(path.join(root,'.private/accounts.json'),'utf8'));
+ createWhatsAppServer({config,root}).listen(config.port,config.bind,()=>console.log('WhatsApp companion ready'));
+}
