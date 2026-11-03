@@ -46,3 +46,5 @@ The SDK fixture drives the actual pinned host handler into a disposable local HT
 The older `test/real-read.mjs`, `test/bridge-read.mjs` and `test/unattended-sync.mjs` depend on live initialized state; do not run them for this change. [Round-one acceptance](docs/acceptance-round-1.md) is historical evidence and its slot/clipboard instructions are superseded.
 
 Vendor source provenance and retained isolation rules are unchanged. No customer acceptance, successful new connection, deployment or real no-paste migration is claimed. The shared cutover scripts and mirrored findings live in `mac-companion/`; `docs/sdk-account-model.md` includes their staging/readiness details.
+
+The [subsequent credential route audit](docs/credential-route-matrix.md) verified MCP authority separately: the daemon OAuth source authenticates to local MCP and full accounts.submit reaches validation. Therefore REST 401 is not proof that no programmatic registration route exists. No credential values were supplied, no pending connection created and no real save attempted; the existing cutover scripts remain staged and REST-only.

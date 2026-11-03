@@ -1,5 +1,7 @@
 # Native accounts, local credential forwarding and staged cutover
 
+**Current route correction:** [the credential route matrix](credential-route-matrix.md) supersedes any inference below that REST 401 means no programmatic authority. The daemon OAuth source authenticates to local MCP, and the installed full accounts.submit tool reaches validation. All probes contained no credential field values and made no live mutation. The existing REST-only cutover code remains staged.
+
 Evidence is grounded in `../upstream/executor` at `executor@2.0.0-beta.33` / `apps@0.0.1-beta.116`, deployed metadata/source APIs, and local synthetic fixtures. No live database was opened or edited. No credential entered stdout, transcript, argv or an artifact. Existing OAuth state was read only by the narrowly scoped local probe; no cookies, vault, token refresh or new management key were used.
 
 ## A. Multiple native accounts
@@ -37,7 +39,7 @@ The slack-rpc adapter is `../atlas-mac-rpc-bridge/executor-adapter.mjs` (`instin
 
 **Observed real result: the existing OAuth bearer received HTTP 401 from accounts.submit.** Authentication to the local management submit API was not established. The release's bearer validator distinguishes MCP/API audiences and requires `executor` scope for API grants; MCP access alone does not imply that authority. The probe does not claim whether this particular rejection is expiry versus grant/audience suitability, and does not try to fix it with refresh, another token store, cookies, a new key or a DB edit.
 
-Consequently no real connection was created/submitted, no companion credential file was opened by the probe, and no app version was deployed. The exact remaining blocker is **an already-authorized, currently valid API submit authority available to this narrow local process**. The existing slack-rpc bearer failed that gate. No-paste forwarder implementation and redaction are fixture-verified; actual migration remains unproven.
+Consequently no real connection was created/submitted, no companion credential file was opened by the probe, and no app version was deployed. That observation is a blocker for the **existing REST-only helper**, not evidence that MCP lacks submit authority. The later route audit verified local MCP initialize/tools.list and full accounts.submit validation using the daemon OAuth source; Executor app metadata also confirms a separately bound existing service apiKey account, without reading its value. A programmatic owning-account-store completion path is exposed. The current audit forbids credential payloads and live mutation, so no real save or new transport adaptation was performed. No-paste migration remains unproven.
 
 Once that gate genuinely passes, the helper also verifies the pending connection's app, requirement, expiry, token-only schema and exact destination host before sending the matching credential. WhatsApp requires two distinct target connection IDs. Agent Hub permits only its known token/baseUrl schema and pinned shared/original endpoint for cutover/rollback. Responses and errors are never echoed; output is an allowlist of fixed event codes and numeric HTTP status. Hostile fixture responses/errors that echo synthetic credentials remain redacted. There is no arbitrary destination, cookie fallback, secret lookup output, refresh or automatic submission retry.
 
@@ -53,7 +55,7 @@ On errors it attempts all recovery steps: restore the shared WhatsApp phase, res
 
 Injected fixtures cover success and each forward-stage failure, preflight refusal, and incomplete rollback. `verify-cutover-launchd.mjs` actually executed those fixtures through a separate temporary launchd job and removed it afterward. It never stopped an original service. Both installed production plists pass plutil.
 
-**Readiness: staged and fixture/launchd verified; operationally blocked.** The real `--check` refused on the same API-authority gate. There is no prepared new live deployment or pending-connection plan, and the WhatsApp phase is not live. Port 4139 was not stopped, and hub.sqlite was not opened.
+**Readiness: staged and fixture/launchd verified; not executed.** The current REST-only `--check` refused on its REST-authority gate. A later audit established MCP submit authority at the validation boundary; this does not automatically adapt or authorize the staged controller to send credentials through MCP. There is no prepared new live deployment or pending-connection plan, and the WhatsApp phase is not live. Port 4139 was not stopped, and hub.sqlite was not opened.
 
 ## Docker route and preservation
 
