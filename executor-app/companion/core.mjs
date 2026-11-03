@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {effectsFor} from '../app/effects.ts';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 export const commands = {
@@ -32,7 +33,7 @@ export function validate(command,args,home) {
  if(['search','download'].includes(command)&&positional!==1)throw Error('missing_argument');
  return out;
 }
-export function needsApproval(command,args){return !(command==='search'||command==='messages'&&args.includes('--no-connect')&&!args.includes('--include-media'));}
+export function needsApproval(command,args){return effectsFor(command,args).requiresApproval;}
 export function syncSignal(command,result,cacheAsOf,prior=null){
  const observedAt=new Date().toISOString();
  if(command!=='sync')return {status:'cached-only',asOf:cacheAsOf,observedAt,lastAttempt:prior,sourceCoverage:'unverified'};

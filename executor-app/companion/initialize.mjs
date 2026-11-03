@@ -12,7 +12,7 @@ const before=snapshot(source);const accounts={};
 for(const id of ['account-1','account-2']){
  const home=path.join(state,'accounts',id);fs.mkdirSync(path.join(home,'.config/wacli'),{recursive:true,mode:0o700});
  for(const dir of ['media','tmp'])fs.mkdirSync(path.join(home,dir),{mode:0o700});
- accounts[id]={id,token:crypto.randomBytes(32).toString('hex')};
+ accounts[id]={id,token:crypto.randomBytes(32).toString('hex'),...(id==='account-1'?{monitoringSource:path.join(source,'data/messages.json')}:{})};
  if(id==='account-1')fs.cpSync(source,path.join(home,'.config/wacli'),{recursive:true,preserveTimestamps:true});
 }
 const after=snapshot(source);if(JSON.stringify(before)!==JSON.stringify(after))throw Error('Source changed during snapshot; verification failed');

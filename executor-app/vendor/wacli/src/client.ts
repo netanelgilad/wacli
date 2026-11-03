@@ -81,6 +81,11 @@ export class WacliClient {
   }
 
   async connect(options?: { showQr?: boolean; syncHistory?: boolean; onQr?: (qr: string) => void }): Promise<void> {
+    // Routine monitoring may maintain an existing app-owned session, never pair one.
+    if (!options?.showQr) {
+      const existing = JSON.parse(fs.readFileSync(path.join(this.authDir, "creds.json"), "utf8"));
+      if (!existing.me?.id) throw new Error("Account requires explicit pairing");
+    }
     const syncTracker = new HistorySyncTracker();
     this.syncTracker = syncTracker;
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
@@ -372,7 +377,7 @@ export class WacliClient {
 
     // If outputPath is a directory, add filename
     let finalPath = outputPath;
-    if (outputPath.endsWith("/") || !outputPath.includes(".")) {
+    if (outputPath.endsWith("/") || !path.basename(outputPath).includes(".") || (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory())) {
       finalPath = path.join(outputPath, `${path.basename(messageId).replace(/[^a-zA-Z0-9_-]/g, "_")}${ext.replace(/[^.a-zA-Z0-9]/g, "")}`);
     }
 
