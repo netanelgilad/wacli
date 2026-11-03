@@ -26,3 +26,19 @@ test('completion requires success and final-event timestamp',()=>{
  assert.equal(syncSignal('account',{},null).asOf,null);
 });
 test('media credentials removed from JSON output',()=>{assert.deepEqual(publicOutput('[{"body":"hi","media":{"mediaKey":"secret"}}]'),[{body:'hi'}]);});
+
+test('connected CLI prefixes cannot leak media credentials',()=>{
+ assert.deepEqual(publicOutput('Connecting...\n[{"body":"hi","media":{"mediaKey":"secret"}}]'),[{body:'hi'}]);
+ assert.equal(publicOutput('truncated {"mediaKey":"secret"'), '[Output withheld: unstructured media credentials]');
+});
+
+test('job progress is available before process completion; timeouts are explicit',async()=>{
+ const fs=await import('node:fs');const os=await import('node:os');const path=await import('node:path');const {runProcess}=await import('../companion/core.mjs');
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'whatsapp-job-test-'));
+ try{
+  fs.mkdirSync(path.join(home,'media'));fs.mkdirSync(path.join(home,'tmp'));
+  const script=path.join(home,'fixture.cjs');fs.writeFileSync(script,'console.log("synthetic-progress");setTimeout(()=>{},10000);');
+  let progress=false;const result=await runProcess(script,'fixture',[],home,300,output=>{progress=output.includes('synthetic-progress');});
+  assert.equal(progress,true);assert.equal(result.timedOut,true);assert.notEqual(result.code,0);
+ }finally{fs.rmSync(home,{recursive:true,force:true});}
+});

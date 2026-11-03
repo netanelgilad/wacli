@@ -41,8 +41,9 @@ export function syncSignal(command,result,cacheAsOf,prior=null){
  return {status,asOf:status==='completed'?marker[1]:cacheAsOf,observedAt,sourceCoverage:'unverified'};
 }
 export function publicOutput(raw){
- try {const parsed=JSON.parse(raw);return JSON.parse(JSON.stringify(parsed,(key,value)=>['media','mediaKey','directPath','url'].includes(key)?undefined:value));}
- catch{return raw.slice(0,128000);}
+ const start=raw.search(/(?:^|\n)[\[{]/);const candidate=start>=0?raw.slice(start).trim():raw;
+ try {const parsed=JSON.parse(candidate);return JSON.parse(JSON.stringify(parsed,(key,value)=>['media','mediaKey','directPath','url'].includes(key)?undefined:value));}
+ catch{return /"(?:mediaKey|directPath)"\s*:/.test(raw)?'[Output withheld: unstructured media credentials]':raw.slice(0,128000);}
 }
 export function runProcess(binary,command,args,home,timeoutMs=55000,onProgress=()=>{}){
  return new Promise(resolve=>{
